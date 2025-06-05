@@ -43,6 +43,10 @@ const (
 
 type IdlTypeDefTyKind string
 
+func (t IdlTypeDefTyKind) Value() string {
+	return string(t)
+}
+
 const (
 	IdlTypeDefTyKindStruct IdlTypeDefTyKind = "struct"
 	IdlTypeDefTyKindEnum   IdlTypeDefTyKind = "enum"
@@ -71,14 +75,61 @@ func (named IdlTypeDefSlice) GetByName(name string) *IdlTypeDef {
 }
 
 type IdlTypeDefTy struct {
-	TypeDefTyEnum   TypeDefTyEnum
-	TypeDefTyStruct TypeDefTyStruct
-	TypeDefTyType   TypeDefTyType
+	TypeDefTyEnum   *TypeDefTyEnum
+	TypeDefTyStruct *TypeDefTyStruct
+	TypeDefTyType   *TypeDefTyType
+}
+
+func (t *IdlTypeDefTy) UnmarshalJSON(data []byte) error {
+	// 解析为 map[string]any
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("invalid IdlTypeDefTy: %w", err)
+	}
+	kind, err := obj["kind"].MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("invalid IdlTypeDefTy kind error: %w", err)
+	}
+
+	var kindStr string
+	err = json.Unmarshal(kind, &kindStr)
+	if err != nil {
+		return fmt.Errorf("invalid Seed kind error: %w", err)
+	}
+	// 判断字段类型并递归解析
+	switch kindStr {
+	case IdlTypeDefTyKindStruct.Value():
+		var enum TypeDefTyEnum
+		if err := json.Unmarshal(data, &enum); err != nil {
+			return err
+		}
+		t.TypeDefTyEnum = &enum
+		return nil
+	case IdlTypeDefTyKindEnum.Value():
+		var typeStruct TypeDefTyStruct
+		if err := json.Unmarshal(data, &typeStruct); err != nil {
+			return err
+		}
+		t.TypeDefTyStruct = &typeStruct
+		return nil
+	case IdlTypeDefTyKindEtType.Value():
+		var tt TypeDefTyType
+		if err := json.Unmarshal(data, &tt); err != nil {
+			return err
+		}
+		t.TypeDefTyType = &tt
+		return nil
+	default:
+		return fmt.Errorf("unknown IdlTypeDefTy field")
+	}
+
+	return fmt.Errorf("unrecognized IdlTypeDefTy: %s", string(data))
+
 }
 
 type TypeDefTyEnum struct {
-	Kind     string `json:"kind"`
-	Variants string `json:"variants"`
+	Kind     string                 `json:"kind"`
+	Variants []TypeDefTyEnumVariant `json:"variants"`
 }
 
 type TypeDefTyEnumVariant struct {
@@ -94,6 +145,21 @@ type TypeDefTyStruct struct {
 type TypeDefinedFields struct {
 	DefinedFieldsNamed []IdlField
 	DefinedFieldsTuple []IdlType
+}
+
+func (t *TypeDefinedFields) UnmarshalJSON(data []byte) error {
+	// 解析为 map[string]any
+	var fieldsTuple []IdlType
+	var fieldsNamed []IdlField
+	if err := json.Unmarshal(data, &fieldsTuple); err == nil {
+		t.DefinedFieldsTuple = fieldsTuple
+		return nil
+	} else if err := json.Unmarshal(data, &fieldsNamed); err == nil {
+		t.DefinedFieldsNamed = fieldsNamed
+		return nil
+	} else {
+		return fmt.Errorf("invalid IdlTypeDefTy: %w", err)
+	}
 }
 
 type TypeDefTyType struct {
