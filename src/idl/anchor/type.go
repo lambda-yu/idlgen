@@ -99,18 +99,18 @@ func (t *IdlTypeDefTy) UnmarshalJSON(data []byte) error {
 	// 判断字段类型并递归解析
 	switch kindStr {
 	case IdlTypeDefTyKindStruct.Value():
-		var enum TypeDefTyEnum
-		if err := json.Unmarshal(data, &enum); err != nil {
-			return err
-		}
-		t.TypeDefTyEnum = &enum
-		return nil
-	case IdlTypeDefTyKindEnum.Value():
 		var typeStruct TypeDefTyStruct
 		if err := json.Unmarshal(data, &typeStruct); err != nil {
 			return err
 		}
 		t.TypeDefTyStruct = &typeStruct
+		return nil
+	case IdlTypeDefTyKindEnum.Value():
+		var TypeDefTyEnum TypeDefTyEnum
+		if err := json.Unmarshal(data, &TypeDefTyEnum); err != nil {
+			return err
+		}
+		t.TypeDefTyEnum = &TypeDefTyEnum
 		return nil
 	case IdlTypeDefTyKindEtType.Value():
 		var tt TypeDefTyType
